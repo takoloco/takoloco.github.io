@@ -36,6 +36,7 @@
                 font-weight: bold;
                 display: inline-block;
                 position: absolute;
+            }
         </style>
     </head>
     <body>
@@ -61,27 +62,6 @@
             </div>
         </div>
         <script>
-            //var data = [4,8,15,16,23,42];
-
-            /*var data = {
-"2022-01-01": [
-["Australia",0,17860,87,0],
-["Canada",77,59147,802,181],
-["France",74,151837,1838,184],
-["Italy",76,105788,2321,188],
-["Japan",80,13905,148,162],
-["Korea",82,12330,110,201],
-["United Kingdom",71,195121,2213,198],
-["United States",63,163278,2449,157]],
-"2022-07-01": [
-["Australia",84,316148,385,223],
-["Canada",82,103886,1101,226],
-["France",79,463788,2220,217],
-["Italy",81,314144,2843,234],
-["Japan",82,74953,251,229],
-["United Arab Emirates",,101182,247],
-["United Kingdom",75,339205,2684,223],
-["United States",67,260636,3021,180]]};*/
 
 // Constants
 
@@ -103,8 +83,8 @@ d3.csv("./owid-covid-data-20220101.csv").then((data) => {
     console.log(data.length + " rows loaded from the CSV file.");
     // filter out continent aggregates (e.g. Asia) and low/mid income countries
     data = data.filter(x => x["continent"] != "" & x["gdp_per_capita"] > HIGH_INCOME_THRESHOLD);
-    setupChart(data, "#total_vaccinations", "location", "total_cases_per_million", "total_vaccinations_per_hundred");
-    setupChart(data, "#total_deaths", "location", "total_deaths_per_million", "total_vaccinations_per_hundred");
+    setupChart(data, "#total_vaccinations", "location", "total_cases_per_million", "total_vaccinations_per_hundred", 0);
+    setupChart(data, "#total_deaths", "location", "total_deaths_per_million", "total_vaccinations_per_hundred", 1);
 });
 
 /* Utility functions */
@@ -134,14 +114,12 @@ function returnMax(data, field, another_field) {
 
 /* Charting function */
 
-function setupChart(data, target_id, location_index, x_index, y_index) {
+function setupChart(data, target_id, location_index, x_index, y_index, order) {
     var x_field = formatFieldName(x_index);
     var y_field = formatFieldName(y_index);
 
     var x_max = returnMax(data, x_index, y_index) * 1.05;
     var y_max = returnMax(data, y_index, x_index) * 1.05;
-    console.log("X_MAX: " + x_max);
-    console.log("Y_MAX: " + y_max);
 
     const chart = d3.select(target_id)
         .append("svg")
@@ -162,7 +140,6 @@ function setupChart(data, target_id, location_index, x_index, y_index) {
         .append("div")
         .style("opacity", 0)
         .attr("class", "tooltip")
-        .attr("id", "total_vax")
         .style("background-color", "white")
         .style("border", "solid")
         .style("border-width", "1px")
@@ -180,8 +157,8 @@ function setupChart(data, target_id, location_index, x_index, y_index) {
     var mousemove = function(d) {
         tooltip
         .html("<span class=\"country\">" + d[location_index] + "</span><br />" + y_field + ": " + d[y_index] + "<br />" + x_field + ": " + d[x_index])
-        .style("left", (d3.mouse(this)) + "px") // It is important to put the +90: other wise the tooltip is exactly where the point is an it creates a weird effect
-        .style("top", (d3.mouse(this)) + "px"),
+        .style("left", (d3.mouse(this)[0]) + 90 + (order * width) + "px") // It is important to put the +90: other wise the tooltip is exactly where the point is an it creates a weird effect
+        .style("top", (d3.mouse(this)[1]) + "px"),
         console.log("Test mousemove - " + d[location_index])
     }
 
@@ -201,6 +178,15 @@ function setupChart(data, target_id, location_index, x_index, y_index) {
             .attr("x", width/2-35)
             .attr("y", height + 35)
             .text(x_field);
+
+        // Y-axis label
+        chart.append("text")
+            .attr("class", "chart-label")
+            .attr("text-anchor", "center")
+            .attr("x", -height/2-35)
+            .attr("y", -32)
+            .attr("transform", "rotate(-90)")
+            .text(y_field)
 
         chart.append("g")
             .attr("transform", `translate(0, ${height})`)
@@ -222,163 +208,6 @@ function setupChart(data, target_id, location_index, x_index, y_index) {
         .on("mousemove", mousemove )
         .on("mouseleave", mouseleave );
 }
-
-/*const total_cases = d3.select("#total_vaccinations")
-    .append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-    .append("g")
-    .attr("transform", `translate(${margin.left}, ${margin.top})`);
-
-            var x = d3.scaleLinear()
-                .domain([0, 200000])
-                .range([ 0, width ]);
-
-            var y = d3.scaleLinear()
-                .domain([0, 250])
-                .range([ height, 0 ]);
-
-            var tooltip = d3.select("#total_vaccinations")
-                .append("div")
-                .style("opacity", 0)
-                .attr("class", "tooltip")
-                .attr("id", "total_vax")
-                .style("background-color", "white")
-                .style("border", "solid")
-                .style("border-width", "1px")
-                .style("border-radius", "5px")
-                .style("padding", "10px");
-
-            // A function that change this tooltip when the user hover a point.
-            // Its opacity is set to 1: we can now see it. Plus it set the text and position of tooltip depending on the datapoint (d)
-            var mouseover = function(d) {
-                tooltip
-                .style("opacity", 1),
-                console.log("Test mouseover - " + d['location'])
-            }
-
-            var mousemove = function(d) {
-                tooltip
-                .html("<span class=\"country\">" + d['location'] + "</span><br />Total Vaccinations Per Hundred: " + d["total_vaccinations_per_hundred"] + "<br />Total Cases Per Million: " + d["total_cases_per_million"])
-                .style("left", (d3.mouse(this)+90) + "px") // It is important to put the +90: other wise the tooltip is exactly where the point is an it creates a weird effect
-                .style("top", (d3.mouse(this)) + "px"),
-                console.log("Test mousemove - " + d['location'])
-            }
-
-            // A function that change this tooltip when the leaves a point: just need to set opacity to 0 again
-            var mouseleave = function(d) {
-                tooltip
-                .transition()
-                .duration(200)
-                .style("opacity", 0),
-                console.log("Test mouseleave - " + d['location'])
-            }
-
-            // X-axis label
-            total_cases.append("text")
-                .attr("class", "chart-label")
-                .attr("text-anchor", "center")
-                .attr("x", width/2-35)
-                .attr("y", height + 35)
-                .text("Total Cases Per Million");
-
-            total_cases.append("g")
-                .attr("transform", `translate(0, ${height})`)
-                .call(d3.axisBottom(x));
-            total_cases.append("g")
-                .call(d3.axisLeft(y));
-
-            total_cases.append("g")
-                .selectAll("circle")
-                .data(data)
-                .enter()
-                .append("circle")
-                .attr("cx", function (d, i) { console.log('x: ' + d["location"] + ' - ' + parseInt(d["total_cases_per_million"])); console.log('i: ' + i); return x(parseInt(d["total_cases_per_million"])); } )
-                .attr("cy", function (d, i) { console.log('y: ' + d["location"] + ' - ' + parseInt(d["total_vaccinations_per_hundred"])); return y(parseInt((d["total_vaccinations_per_hundred"]))); } )
-                .attr("r", 5)
-                .attr("fill", "#69b3a2")
-            .on("mouseover", mouseover )
-            .on("mousemove", mousemove )
-            .on("mouseleave", mouseleave );
-
-const total_deaths = d3.select("#total_deaths")
-    .append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-    .append("g")
-    .attr("transform", `translate(${margin.left}, ${margin.top})`);
-
-            var x = d3.scaleLinear()
-                .domain([0, 5000])
-                .range([ 0, width ]);
-
-            var y = d3.scaleLinear()
-            .domain([0, 250])
-            .range([ height, 0 ]);
-
-            var tooltip_deaths = d3.select("#total_deaths")
-                .append("div")
-                .style("opacity", 0)
-                .attr("class", "tooltip")
-                .style("background-color", "white")
-                .style("border", "solid")
-                .style("border-width", "1px")
-                .style("border-radius", "5px")
-                .style("padding", "10px");
-
-            // A function that change this tooltip when the user hover a point.
-            // Its opacity is set to 1: we can now see it. Plus it set the text and position of tooltip depending on the datapoint (d)
-            var mouseover_deaths = function(d) {
-                tooltip_deaths
-                .style("opacity", 1),
-                console.log("Test mouseover - " + d['location'])
-            }
-
-            var mousemove_deaths = function(d) {
-                tooltip_deaths
-                .html(d[2] + "<br />Total Vaccinations Per Hundred: " + d[40] + "<br />Total Deaths Per Million: " + d[13])
-                .style("left", (d3.mouse(this)+90+width+90) + "px") // It is important to put the +90: other wise the tooltip is exactly where the point is an it creates a weird effect
-                .style("top", (d3.mouse(this)) + "px"),
-                console.log("Test mousemove - " + d[2])
-
-            }
-
-            // A function that change this tooltip when the leaves a point: just need to set opacity to 0 again
-            var mouseleave_deaths = function(d) {
-                tooltip_deaths
-                .transition()
-                .duration(200)
-                .style("opacity", 0),
-                console.log("Test mouseleave - " + d['location'])
-            }
-
-            // X-axis label
-            total_deaths.append("text")
-                .attr("class", "chart-label")
-                .attr("text-anchor", "center")
-                .attr("x", width/2-35)
-                .attr("y", height + 35)
-                .text("Total Deaths Per Million");
-
-            total_deaths.append("g")
-                .attr("transform", `translate(0, ${height})`)
-                .call(d3.axisBottom(x));
-            total_deaths.append("g")
-                .call(d3.axisLeft(y));
-            //console.log('DATA: ' + data[cur_date]);
-            total_deaths.append("g")
-                .selectAll("circle")
-                .data(data)
-                .enter()
-                .append("circle")
-                .filter(function(d) { return d["date"] == cur_date; })
-                .attr("cx", function (d, i) { console.log('x: ' + parseInt(d["total_deaths_per_million"])); return x(parseInt(d["total_deaths_per_million"])); } )
-                .attr("cy", function (d, i) { console.log('y: ' + parseInt(d["total_vaccinations_per_hundred"])); return y(parseInt(d["total_vaccinations_per_hundred"])); } )
-                .attr("r", 5)
-                .attr("fill", "#69b3a2")
-            .on("mouseover", mouseover_deaths )
-            .on("mousemove", mousemove_deaths )
-            .on("mouseleave", mouseleave_deaths );*/
         </script>
     </body>
 </html>
