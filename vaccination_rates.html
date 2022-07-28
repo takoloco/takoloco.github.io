@@ -50,21 +50,22 @@
     <body>
         <div id="container">
             <div id="header">
+                <select id="date_picker"></select>
                 <input type="hidden" name="init_date" id="init_date" value="2022-01-01">
             </div>
             <div>
                 <table>
                     <tr>
                         <th>Total Cases</th>
-                        <th>Total Deaths</th>
+                        <!-- <th>Total Deaths</th> -->
                     </tr>
                     <tr>
                         <td class="chart-container">
                             <div id="total_vaccinations"></div>
                         </td>
-                        <td class="chart-container">
+                        <!-- <td class="chart-container">
                             <div id="total_deaths"></div>
-                        </td>
+                        </td> -->
                     </tr>
                 </table>
             </div>
@@ -82,17 +83,38 @@ const margin = {top: 10, right: 30, bottom: 50, left: 60},
         width = 750 - margin.left - margin.right,
         height = 750 - margin.top - margin.bottom;
 
+var csv = [];
+
 // Parameters
 
-const cur_date = d3.select("#init_date").property('value');
-console.log('Date: ' + cur_date);
+var cur_date = d3.select("#init_date").property('value');
 
-d3.csv("./owid-covid-data-20220101.csv").then((data) => {
-    console.log(data.length + " rows loaded from the CSV file.");
-    // filter out continent aggregates (e.g. Asia) and low/mid income countries
-    data = data.filter(x => x["continent"] != "" & x["gdp_per_capita"] > HIGH_INCOME_THRESHOLD);
+d3.csv("./owid-covid-data-01.csv").then((rows) => {
+    console.log(rows.length + " rows loaded from the CSV file.");
+
+    csv = rows;
+
+    // Get all available dates present in the CSV file
+    all_dates = getAllValuesForField(csv, "date", false).filter(onlyUnique).sort();
+    
+    // Populate date picker menu
+    setupDatePicker("#date_picker", all_dates);
+
+    // Filter out continent aggregates (e.g. Asia) and low/mid income countries
+    data = csv.filter(x => x["date"] == cur_date & x["continent"] != "" & x["gdp_per_capita"] > HIGH_INCOME_THRESHOLD);
+
+    // Set up the chart
     setupChart(data, "#total_vaccinations", "location", "total_cases_per_million", "total_vaccinations_per_hundred", 0);
-    setupChart(data, "#total_deaths", "location", "total_deaths_per_million", "total_vaccinations_per_hundred", 1);
+
+    // Set up onChange action
+    d3.select("#date_picker")
+    .on("change", function() {
+        cur_date = d3.select("#date_picker").property('value');
+        d3.select("#total_vaccinations")
+            .html("");
+        data = csv.filter(x => x["date"] == cur_date & x["continent"] != "" & x["gdp_per_capita"] > HIGH_INCOME_THRESHOLD);
+        setupChart(data, "#total_vaccinations", "location", "total_cases_per_million", "total_vaccinations_per_hundred", 0);
+    });
 });
 
 /* Utility functions */
@@ -103,6 +125,10 @@ function capitalizeFirstLetter(string) {
 
 function formatFieldName(field) {
     return field.split('_').map(x => capitalizeFirstLetter(x)).join(' ');
+}
+
+function onlyUnique(value, index, self) {
+    return self.indexOf(value) == index;
 }
 
 Array.prototype.max = function() {
@@ -121,13 +147,17 @@ function filterRows(data, x_index, y_index) {
     return data.filter(x => x[x_index] != '' & x[y_index]);
 }
 
-function getAllValuesForField(data, field) {
+function getAllValuesForField(data, field, isNumeric = true) {
     var arr = [];
     data.forEach(function(item, index, data) {
-        var parsedValue = parseFloat(item[field]);
-        if (!isNaN(parsedValue)) {
-            arr.push(parsedValue);
+        var value = item[field];
+        if(isNumeric) {
+            value = parseFloat(value);
+            if(isNaN(value)) {
+                return;
+            }
         }
+        arr.push(value);
     });
     return arr;
 }
@@ -152,6 +182,18 @@ function computeTrendline(x, y) {
     trendline.intercept = (y.sum() - trendline.slope * x.sum())/n;
 
     return trendline;
+}
+
+function setupDatePicker(menu_id, dates) {
+    d3.select(menu_id)
+        .html("");
+    d3.select(menu_id)
+        .selectAll("option")
+            .data(dates)
+            .enter()
+            .append("option")
+            .attr("value", function(d, i) { return d; })
+            .html(function(d, i) { return d; });
 }
 
 /* Charting function */
