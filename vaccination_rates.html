@@ -2,6 +2,7 @@
     <head>
         <title>Narrative Visualization Project - Tako Hisada</title>
         <script src="https://d3js.org/d3.v5.min.js"></script>
+        <script src="https://rawgit.com/susielu/d3-annotation/master/d3-annotation.min.js"></script>
         <style >
             svg {
                 margin: 0;
@@ -36,6 +37,13 @@
                 font-weight: bold;
                 display: inline-block;
                 position: absolute;
+            }
+            /* Annotation related */
+            .annotation-note-title, text.title {
+                font-weight: bold;
+            }
+            text.title {
+                font-size: 1.2em;
             }
         </style>
     </head>
@@ -101,25 +109,69 @@ Array.prototype.max = function() {
   return Math.max.apply(null, this);
 };
 
-function returnMax(data, field, another_field) {
+Array.prototype.sum = function() {
+    var total = 0;
+    this.forEach(function(item, index, data) {
+        total += item;
+    });
+    return total;
+};
+
+function filterRows(data, x_index, y_index) {
+    return data.filter(x => x[x_index] != '' & x[y_index]);
+}
+
+function getAllValuesForField(data, field) {
     var arr = [];
     data.forEach(function(item, index, data) {
         var parsedValue = parseFloat(item[field]);
-        if (!isNaN(parsedValue) && !isNaN(item[another_field])) {
+        if (!isNaN(parsedValue)) {
             arr.push(parsedValue);
         }
     });
-    return arr.max();
+    return arr;
+}
+
+function computeTrendline(x, y) {
+    var trendline = {};
+    var n = x.length;
+    var xy = 0;
+    x.forEach(function(item, index, data) {
+        xy += x[index] * y[index];
+    });
+    console.log("xy: " + xy);
+    var x_2 = 0;
+    x.forEach(function(item, index, data) {
+        x_2 += Math.pow(x[index], 2);
+    });
+    console.log("x^2: " + x_2);
+    console.log("x_sum: " + x.sum());
+    console.log("y_sum: " + y.sum());
+
+    trendline.slope = (x.length * xy - x.sum() * y.sum())/(n * x_2 - Math.pow(x.sum(), 2));
+    trendline.intercept = (y.sum() - trendline.slope * x.sum())/n;
+
+    return trendline;
 }
 
 /* Charting function */
 
 function setupChart(data, target_id, location_index, x_index, y_index, order) {
+    data = filterRows(data, x_index, y_index);
+    console.log("Rows: " + data.length);
+
     var x_field = formatFieldName(x_index);
     var y_field = formatFieldName(y_index);
 
-    var x_max = returnMax(data, x_index, y_index) * 1.05;
-    var y_max = returnMax(data, y_index, x_index) * 1.05;
+    var x_column = getAllValuesForField(data, x_index);
+    var y_column = getAllValuesForField(data, y_index);
+
+    var x_max = x_column.max() * 1.05;
+    var y_max = y_column.max() * 1.05;
+
+    var trendline = computeTrendline(x_column, y_column);
+    console.log("Slope: " + trendline.slope);
+    console.log("Intercept: " + trendline.intercept);
 
     const chart = d3.select(target_id)
         .append("svg")
@@ -128,14 +180,17 @@ function setupChart(data, target_id, location_index, x_index, y_index, order) {
         .append("g")
         .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
+    // X Scaler
     var x = d3.scaleLinear()
         .domain([0, x_max])
         .range([ 0, width ]);
 
+    // Y Scaler
     var y = d3.scaleLinear()
         .domain([0, y_max])
         .range([ height, 0 ]);
 
+    // Tooltip
     var tooltip = d3.select(target_id)
         .append("div")
         .style("opacity", 0)
@@ -145,6 +200,31 @@ function setupChart(data, target_id, location_index, x_index, y_index, order) {
         .style("border-width", "1px")
         .style("border-radius", "5px")
         .style("padding", "10px");
+
+    // Trendline
+    const line = d3.line();
+    var line_coordinates = [[x(0), y(trendline.intercept)], [x(x_max), y(trendline.intercept+trendline.slope*x_max)]];
+
+    // Annotations
+    const annotations = [
+        {
+            note: {
+                title: "Trendline formula",
+                label: "y = " + trendline.slope.toPrecision(4) + "x + " + trendline.intercept.toPrecision(5),
+                wrap: 150
+            },
+            x: x(x_max)/2,
+            y: y(trendline.intercept+trendline.slope*x_max/2),
+            dy: -50,
+            dx: 200,
+            type: d3.annotationCalloutElbow,
+            connector: { end: "arrow" }
+        }
+    ];
+
+    const makeAnnotations = d3.annotation()
+          .type(d3.annotationLabel)
+          .annotations(annotations);
 
     // A function that change this tooltip when the user hover a point.
     // Its opacity is set to 1: we can now see it. Plus it set the text and position of tooltip depending on the datapoint (d)
@@ -207,6 +287,14 @@ function setupChart(data, target_id, location_index, x_index, y_index, order) {
         .on("mouseover", mouseover )
         .on("mousemove", mousemove )
         .on("mouseleave", mouseleave );
+
+        chart.append("path")
+            .attr("d", line(line_coordinates))
+            .attr("stroke", "red");
+
+        chart.append("g")
+            .attr("class", "annotation-group")
+            .call(makeAnnotations);
 }
         </script>
     </body>
