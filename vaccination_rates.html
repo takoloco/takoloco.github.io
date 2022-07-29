@@ -8,23 +8,44 @@
                 margin: 0;
                 padding: 0;
             }
-            th {
-                font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+            h2 {
+                font-family:'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
                 font-size: medium;
                 font-weight: bold;
+                text-align: left;
+            }
+            th {
+                font-family: 'Times New Roman', Times, serif;
+                font-size: larger;
+                font-weight: bold;
                 text-align: center;
+            }
+            td {
+                font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+                font-size: small;
+                font-weight: normal;
+                text-align: left;
             }
 
             #container {
                 width: 1004px;
             }
-            #header {
+            #control {
+                padding: 1em 0 0 0;
+                text-align: left;
+                vertical-align: top;
+            }
+            #nav {
+                font-family: 'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+                font-size: large;
+                font-weight: bolder;
+                padding: 1em 0;
                 text-align: center;
             }
 
             .chart-label {
                 color: #000;
-                font-family:Verdana, Geneva, Tahoma, sans-serif;
+                font-family: Verdana, Geneva, Tahoma, sans-serif;
                 font-size: x-small;
             }
             .country {
@@ -49,32 +70,38 @@
     </head>
     <body>
         <div id="container">
-            <div id="header">
-                <select id="date_picker"></select>
-                <input type="hidden" name="init_date" id="init_date" value="2022-01-01">
-            </div>
-            <div>
-                <table>
-                    <tr>
-                        <th>Total Cases</th>
-                        <!-- <th>Total Deaths</th> -->
-                    </tr>
-                    <tr>
-                        <td class="chart-container">
-                            <div id="total_vaccinations"></div>
-                        </td>
-                        <!-- <td class="chart-container">
-                            <div id="total_deaths"></div>
-                        </td> -->
-                    </tr>
-                </table>
-            </div>
+            <table>
+                <tr>
+                    <th colspan="2">Effect of Vaccination on Total COVID-19 Positive Cases and COVID-19 Deaths</th>
+                </tr>
+                <tr>
+                    <td colspan="2" id="nav"><span id="prev">&lt;&lt;</span>&nbsp;&nbsp;<span id="cur_month"></span>&nbsp;&nbsp;<span id="next">&gt;&gt;</span></td>
+                </tr>
+                <tr>
+                    <td class="chart-container">
+                        <div id="main_chart"></div>
+                    </td>
+                    <td id="control">
+                        <h2>Jump to:</h2>
+                        <select id="date_picker"></select>
+                        <h2>X-Axis:</h2>
+                        <input type="radio" id="total_cases_per_million" name="x_axis" value="total_cases_per_million" checked /> <label for="total_cases_per_million">Total Cases Per Million</label><br />
+                        <input type="radio" id="total_deaths_per_million" name="x_axis" value="total_deaths_per_million" /> <label for="total_deaths_per_million">Total Deaths Per Million</label>
+                        <h2>Y-Axis:</h2>
+                        <input type="radio" id="total_vaccinations_per_hundred" name="y_axis" value="total_vaccinations_per_hundred" checked /> <label for="total_vaccinations_per_hundred">Total Vaccinations Per Hundred</label><br />
+                        <input type="radio" id="people_fully_vaccinated_per_hundred" name="y_axis" value="people_fully_vaccinated_per_hundred" /> <label for="people_fully_vaccinated_per_hundred">People Fully Vaccinated Per Hundred</label>
+                    </td>
+                </tr>
+            </table>
         </div>
         <script>
 
 // Constants
 
 const HIGH_INCOME_THRESHOLD = 13205; // World Bank definition of "high-income economies" in 2021
+const X_AXIS_DEFAULT = "total_cases_per_million";
+const Y_AXIS_DEFAULT = "total_vaccinations_per_hundred";
+const MONTH_DEFAULT = "2022-01-01";
 
 // Global variables
 
@@ -87,7 +114,7 @@ var csv = [];
 
 // Parameters
 
-var cur_date = d3.select("#init_date").property('value');
+var cur_date = MONTH_DEFAULT;
 
 d3.csv("./owid-covid-data-01.csv").then((rows) => {
     console.log(rows.length + " rows loaded from the CSV file.");
@@ -104,17 +131,82 @@ d3.csv("./owid-covid-data-01.csv").then((rows) => {
     data = csv.filter(x => x["date"] == cur_date & x["continent"] != "" & x["gdp_per_capita"] > HIGH_INCOME_THRESHOLD);
 
     // Set up the chart
-    setupChart(data, "#total_vaccinations", "location", "total_cases_per_million", "total_vaccinations_per_hundred", 0);
+    setupChart(data, "#main_chart", "location", X_AXIS_DEFAULT, Y_AXIS_DEFAULT, 0);
 
     // Set up onChange action
     d3.select("#date_picker")
-    .on("change", function() {
-        cur_date = d3.select("#date_picker").property('value');
-        d3.select("#total_vaccinations")
-            .html("");
-        data = csv.filter(x => x["date"] == cur_date & x["continent"] != "" & x["gdp_per_capita"] > HIGH_INCOME_THRESHOLD);
-        setupChart(data, "#total_vaccinations", "location", "total_cases_per_million", "total_vaccinations_per_hundred", 0);
-    });
+        .on("change", function() {
+            cur_date = d3.select("#date_picker").property("value");
+            d3.select("#cur_date").html(cur_date);
+            cur_x = d3.selectAll("input[name=\"x_axis\"]:checked").property("value");
+            cur_y = d3.selectAll("input[name=\"y_axis\"]:checked").property("value");
+            d3.select("#cur_month")
+                .html(cur_date);
+            d3.select("#main_chart")
+                .html("");
+            data = csv.filter(x => x["date"] == cur_date & x["continent"] != "" & x["gdp_per_capita"] > HIGH_INCOME_THRESHOLD);
+            setupChart(data, "#main_chart", "location", cur_x, cur_y, 0);
+        });
+
+    // Set up radio button actions for X-axis
+    d3.selectAll("input[name=\"x_axis\"]")
+        .on("click", function() {
+            cur_date = d3.select("#date_picker").property("value");
+            cur_x = this.value;
+            cur_y = d3.selectAll("input[name=\"y_axis\"]:checked").property("value");
+            d3.select("#main_chart")
+                .html("");
+            data = csv.filter(x => x["date"] == cur_date & x["continent"] != "" & x["gdp_per_capita"] > HIGH_INCOME_THRESHOLD);
+            setupChart(data, "#main_chart", "location", cur_x, cur_y, 0);
+        });
+
+    // Set up radio button actions for Y-axis
+    d3.selectAll("input[name=\"y_axis\"]")
+        .on("click", function() {
+            cur_date = d3.select("#date_picker").property("value");
+            cur_x = d3.selectAll("input[name=\"x_axis\"]:checked").property("value");
+            cur_y = this.value;
+            d3.select("#main_chart")
+                .html("");
+            data = csv.filter(x => x["date"] == cur_date & x["continent"] != "" & x["gdp_per_capita"] > HIGH_INCOME_THRESHOLD);
+            setupChart(data, "#main_chart", "location", cur_x, cur_y, 0);
+        });
+
+    // Set up onClick action for the "prev" arrows.
+    d3.select("#prev")
+        .on("click", function() {
+            if(all_dates.indexOf(cur_date) == 0) {
+                return;
+            }
+            cur_date = d3.select("#date_picker").property("value");
+            cur_date = all_dates[all_dates.indexOf(cur_date)-1];
+            d3.select("#date_picker").property("value", cur_date);
+            d3.select("#cur_month").html(cur_date);
+            cur_x = d3.selectAll("input[name=\"x_axis\"]:checked").property("value");
+            cur_y = d3.selectAll("input[name=\"y_axis\"]:checked").property("value");
+            d3.select("#main_chart")
+                .html("");
+            data = csv.filter(x => x["date"] == cur_date & x["continent"] != "" & x["gdp_per_capita"] > HIGH_INCOME_THRESHOLD);
+            setupChart(data, "#main_chart", "location", cur_x, cur_y, 0);
+        });
+
+    // Set up onClick action for the "next" arrows.
+    d3.select("#next")
+        .on("click", function() {
+            if(all_dates.indexOf(cur_date) == all_dates.length - 1) {
+                return;
+            }
+            cur_date = d3.select("#date_picker").property("value");
+            cur_date = all_dates[all_dates.indexOf(cur_date)+1];
+            d3.select("#date_picker").property("value", cur_date);
+            d3.select("#cur_month").html(cur_date);
+            cur_x = d3.selectAll("input[name=\"x_axis\"]:checked").property("value");
+            cur_y = d3.selectAll("input[name=\"y_axis\"]:checked").property("value");
+            d3.select("#main_chart")
+                .html("");
+            data = csv.filter(x => x["date"] == cur_date & x["continent"] != "" & x["gdp_per_capita"] > HIGH_INCOME_THRESHOLD);
+            setupChart(data, "#main_chart", "location", cur_x, cur_y, 0);
+        });
 });
 
 /* Utility functions */
@@ -193,7 +285,11 @@ function setupDatePicker(menu_id, dates) {
             .enter()
             .append("option")
             .attr("value", function(d, i) { return d; })
-            .html(function(d, i) { return d; });
+            .html(function(d, i) { return d; })
+            .filter(function(d) { return d == cur_date; })
+            .attr("selected", "selected");
+    d3.select("#cur_month")
+        .html(cur_date);
 }
 
 /* Charting function */
@@ -279,7 +375,7 @@ function setupChart(data, target_id, location_index, x_index, y_index, order) {
     var mousemove = function(d) {
         tooltip
         .html("<span class=\"country\">" + d[location_index] + "</span><br />" + y_field + ": " + d[y_index] + "<br />" + x_field + ": " + d[x_index])
-        .style("left", (d3.mouse(this)[0]) + 90 + (order * width) + "px") // It is important to put the +90: other wise the tooltip is exactly where the point is an it creates a weird effect
+        .style("left", (d3.mouse(this)[0] + 90 + (order * width)) + "px") // It is important to put the +90: other wise the tooltip is exactly where the point is an it creates a weird effect
         .style("top", (d3.mouse(this)[1]) + "px"),
         console.log("Test mousemove - " + d[location_index])
     }
@@ -293,50 +389,50 @@ function setupChart(data, target_id, location_index, x_index, y_index, order) {
         console.log("Test mouseleave - " + d[location_index])
     }
 
-        // X-axis label
-        chart.append("text")
-            .attr("class", "chart-label")
-            .attr("text-anchor", "center")
-            .attr("x", width/2-35)
-            .attr("y", height + 35)
-            .text(x_field);
+    // X-axis label
+    chart.append("text")
+        .attr("class", "chart-label")
+        .attr("text-anchor", "center")
+        .attr("x", width/2-35)
+        .attr("y", height + 35)
+        .text(x_field);
 
-        // Y-axis label
-        chart.append("text")
-            .attr("class", "chart-label")
-            .attr("text-anchor", "center")
-            .attr("x", -height/2-35)
-            .attr("y", -32)
-            .attr("transform", "rotate(-90)")
-            .text(y_field)
+    // Y-axis label
+    chart.append("text")
+        .attr("class", "chart-label")
+        .attr("text-anchor", "center")
+        .attr("x", -height/2-35)
+        .attr("y", -32)
+        .attr("transform", "rotate(-90)")
+        .text(y_field)
 
-        chart.append("g")
-            .attr("transform", `translate(0, ${height})`)
-            .call(d3.axisBottom(x));
-        chart.append("g")
-            .call(d3.axisLeft(y));
+    chart.append("g")
+        .attr("transform", `translate(0, ${height})`)
+        .call(d3.axisBottom(x));
+    chart.append("g")
+        .call(d3.axisLeft(y));
 
-        chart.append("g")
-            .selectAll("circle")
-            .data(data)
-            .enter()
-            .append("circle")
-            .filter(function(d) { return d[x_index] != "" & d[y_index] != ""; }) // Filter out if X/Y values are empty
-            .attr("cx", function (d, i) { return x(parseInt(d[x_index])); } )
-            .attr("cy", function (d, i) { return y(parseInt((d[y_index]))); } )
-            .attr("r", 5)
-            .attr("fill", "#69b3a2")
-        .on("mouseover", mouseover )
-        .on("mousemove", mousemove )
-        .on("mouseleave", mouseleave );
+    chart.append("g")
+        .selectAll("circle")
+        .data(data)
+        .enter()
+        .append("circle")
+        .filter(function(d) { return d[x_index] != "" & d[y_index] != ""; }) // Filter out if X/Y values are empty
+        .attr("cx", function (d, i) { return x(parseInt(d[x_index])); } )
+        .attr("cy", function (d, i) { return y(parseInt((d[y_index]))); } )
+        .attr("r", 5)
+        .attr("fill", "#69b3a2")
+    .on("mouseover", mouseover )
+    .on("mousemove", mousemove )
+    .on("mouseleave", mouseleave );
 
-        chart.append("path")
-            .attr("d", line(line_coordinates))
-            .attr("stroke", "red");
+    chart.append("path")
+        .attr("d", line(line_coordinates))
+        .attr("stroke", "red");
 
-        chart.append("g")
-            .attr("class", "annotation-group")
-            .call(makeAnnotations);
+    chart.append("g")
+        .attr("class", "annotation-group")
+        .call(makeAnnotations);
 }
         </script>
     </body>
