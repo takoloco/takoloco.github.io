@@ -14,6 +14,9 @@
                 font-weight: bold;
                 text-align: left;
             }
+            nav > a {
+                text-decoration: none;
+            }
             th {
                 font-family: 'Times New Roman', Times, serif;
                 font-size: larger;
@@ -43,6 +46,12 @@
                 text-align: center;
             }
 
+            .arrow-enabled {
+                color:blue;
+            }
+            .arrow-disabled {
+                color:gray;
+            }
             .chart-label {
                 color: #000;
                 font-family: Verdana, Geneva, Tahoma, sans-serif;
@@ -75,7 +84,9 @@
                     <th colspan="2">Effect of Vaccination on Total COVID-19 Positive Cases and COVID-19 Deaths</th>
                 </tr>
                 <tr>
-                    <td colspan="2" id="nav"><span id="prev">&lt;&lt;</span>&nbsp;&nbsp;<span id="cur_month"></span>&nbsp;&nbsp;<span id="next">&gt;&gt;</span></td>
+                    <td colspan="2" id="nav">
+                        <nav><a href="#" id="prev">&lt;&lt;</a>&nbsp;&nbsp;<span id="cur_month"></span>&nbsp;&nbsp;<a href="#" id="next">&gt;&gt;</a></nav>
+                    </td>
                 </tr>
                 <tr>
                     <td class="chart-container">
@@ -148,7 +159,7 @@ d3.csv("./owid-covid-data-01.csv").then((rows) => {
             setupChart(data, "#main_chart", "location", cur_x, cur_y, 0);
         });
 
-    // Set up radio button actions for X-axis
+    // Set up radio button actions for X-axis.
     d3.selectAll("input[name=\"x_axis\"]")
         .on("click", function() {
             cur_date = d3.select("#date_picker").property("value");
@@ -160,7 +171,7 @@ d3.csv("./owid-covid-data-01.csv").then((rows) => {
             setupChart(data, "#main_chart", "location", cur_x, cur_y, 0);
         });
 
-    // Set up radio button actions for Y-axis
+    // Set up radio button actions for Y-axis.
     d3.selectAll("input[name=\"y_axis\"]")
         .on("click", function() {
             cur_date = d3.select("#date_picker").property("value");
@@ -172,16 +183,38 @@ d3.csv("./owid-covid-data-01.csv").then((rows) => {
             setupChart(data, "#main_chart", "location", cur_x, cur_y, 0);
         });
 
+    // Navigational arrows
+
+    // Enable both navigational arrows.
+    d3.selectAll("nav > a")
+        .attr("class", "arrow-enabled");
+
+    // If cur_date is the first item of the all_dates array, disalbe the "prev" arrows. 
+    if(all_dates.indexOf(cur_date) == 0) {
+        d3.select("#prev").attr("class", "arrow-disabled");
+    }
+    // If cur_date is the last item of the all_dates array, disalbe the "next" arrows. 
+    if(all_dates.indexOf(cur_date) == all_dates.length - 1) {
+        d3.select("#next").attr("class", "arrow-disabled");
+    }
+
     // Set up onClick action for the "prev" arrows.
     d3.select("#prev")
         .on("click", function() {
+            // If cur_date is already at the beginning of all_dates, do nothing
             if(all_dates.indexOf(cur_date) == 0) {
+                d3.select(this).attr("class", "arrow-disabled");
                 return;
             }
             cur_date = d3.select("#date_picker").property("value");
             cur_date = all_dates[all_dates.indexOf(cur_date)-1];
+            // If the new cur_date value is at the beginning of all_dates, disable the "prev" navigational arrows.
+            if(all_dates.indexOf(cur_date) == 0) {
+                d3.select(this).attr("class", "arrow-disabled");
+            }
             d3.select("#date_picker").property("value", cur_date);
             d3.select("#cur_month").html(cur_date);
+            d3.select("#next").attr("class", "arrow-enabled");
             cur_x = d3.selectAll("input[name=\"x_axis\"]:checked").property("value");
             cur_y = d3.selectAll("input[name=\"y_axis\"]:checked").property("value");
             d3.select("#main_chart")
@@ -193,13 +226,20 @@ d3.csv("./owid-covid-data-01.csv").then((rows) => {
     // Set up onClick action for the "next" arrows.
     d3.select("#next")
         .on("click", function() {
+            // If cur_date is already at the end of all_dates, do nothing
             if(all_dates.indexOf(cur_date) == all_dates.length - 1) {
+                d3.select(this).attr("class", "arrow-disabled");
                 return;
             }
             cur_date = d3.select("#date_picker").property("value");
             cur_date = all_dates[all_dates.indexOf(cur_date)+1];
+            // If the new cur_date value is at the end of all_dates, disable the "next" navigational arrows.
+            if(all_dates.indexOf(cur_date) == all_dates.length - 1) {
+                d3.select(this).attr("class", "arrow-disabled");
+            }
             d3.select("#date_picker").property("value", cur_date);
             d3.select("#cur_month").html(cur_date);
+            d3.select("#prev").attr("class", "arrow-enabled");
             cur_x = d3.selectAll("input[name=\"x_axis\"]:checked").property("value");
             cur_y = d3.selectAll("input[name=\"y_axis\"]:checked").property("value");
             d3.select("#main_chart")
