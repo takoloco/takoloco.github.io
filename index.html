@@ -72,14 +72,14 @@
             :root {
                 --annotation-color: #E8336D;
             }
-            #nav .annotation path {
+            .demo-annotation-group path {
                 stroke: var(--annotation-color);
                 fill: rgba(0,0,0,0);
             }
-            #nav .annotation path.connector-arrow{
+            .demo-annotation-group path.connector-arrow{
                 fill: var(--annotation-color);
             }
-            #nav .annotation text {
+            .demo-annotation-group text {
                 fill: var(--annotation-color);
             }
             .annotation-note-label {
@@ -114,7 +114,7 @@
                     </td>
                     <td id="control">
                         <h2>Jump to:</h2>
-                        <select id="date_picker"></select>
+                        <select id="date_picker" disabled="disabled"></select>
                         <h2>X-Axis:</h2>
                         <input type="radio" id="total_cases_per_million" name="x_axis" value="total_cases_per_million" checked /> <label for="total_cases_per_million">Total Cases Per Million</label><br />
                         <input type="radio" id="total_deaths_per_million" name="x_axis" value="total_deaths_per_million" /> <label for="total_deaths_per_million">Total Deaths Per Million</label>
@@ -132,7 +132,7 @@
 const HIGH_INCOME_THRESHOLD = 13205; // World Bank definition of "high-income economies" in 2021
 const X_AXIS_DEFAULT = "total_cases_per_million";
 const Y_AXIS_DEFAULT = "total_vaccinations_per_hundred";
-const MONTH_DEFAULT = "2022-01-01";
+const MONTH_DEFAULT = "2021-10-01";
 
 // Global variables
 
@@ -146,6 +146,9 @@ const nav_margin = {top: 10, right: 10, bottom: 10, left: 10},
         nav_height = 100 - margin.top - margin.bottom;
 
 var csv = [];
+
+// Keep track of number of clicks as user navigates the demo
+var click_count = 0;
 
 // Parameters
 
@@ -206,48 +209,18 @@ d3.csv("./owid-covid-data-01.csv").then((rows) => {
             setupChart(data, "#main_chart", "location", cur_x, cur_y, 0);
         });
 
-    // Navigational arrows
-
-    // Enable both navigational arrows.
-    d3.selectAll("#prev, #next")
-        .attr("class", "arrow-enabled");
-
-    // If cur_date is the first item of the all_dates array, disable the "prev" arrows. 
-    if(all_dates.indexOf(cur_date) == 0) {
-        d3.select("#prev").attr("class", "arrow-disabled");
-    }
-    // If cur_date is the last item of the all_dates array, disable the "next" arrows. 
-    if(all_dates.indexOf(cur_date) == all_dates.length - 1) {
-        d3.select("#next").attr("class", "arrow-disabled");
-    }
-
-    // Set up onClick action for the "prev" arrows.
-    d3.select("#prev")
-        .on("click", function() {
-            // If cur_date is already at the beginning of all_dates, do nothing
-            if(all_dates.indexOf(cur_date) == 0) {
-                d3.select(this).attr("class", "arrow-disabled");
-                return;
-            }
-            cur_date = d3.select("#date_picker").property("value");
-            cur_date = all_dates[all_dates.indexOf(cur_date)-1];
-            // If the new cur_date value is at the beginning of all_dates, disable the "prev" navigational arrows.
-            if(all_dates.indexOf(cur_date) == 0) {
-                d3.select(this).attr("class", "arrow-disabled");
-            }
-            d3.select("#date_picker").property("value", cur_date);
-            d3.select("#cur_month").html(cur_date);
-            d3.select("#next").attr("class", "arrow-enabled");
-            cur_x = d3.selectAll("input[name=\"x_axis\"]:checked").property("value");
-            cur_y = d3.selectAll("input[name=\"y_axis\"]:checked").property("value");
-            d3.select("#main_chart").html("");
-            data = csv.filter(x => x["date"] == cur_date & x["continent"] != "" & x["gdp_per_capita"] > HIGH_INCOME_THRESHOLD);
-            setupChart(data, "#main_chart", "location", cur_x, cur_y, 0);
-        });
-
     // Set up onClick action for the "next" arrows.
     d3.select("#next")
         .on("click", function() {
+            // Demo action management
+            click_count++;
+            if(click_count == 3) {
+                window.location.href = "./vaccination_rates.html";
+            } else if(click_count > 0) {
+                d3.select("#nav .demo-annotation-group")
+                    .style("opacity", 0)
+            }
+
             // If cur_date is already at the end of all_dates, do nothing
             if(all_dates.indexOf(cur_date) == all_dates.length - 1) {
                 d3.select(this).attr("class", "arrow-disabled");
@@ -261,7 +234,6 @@ d3.csv("./owid-covid-data-01.csv").then((rows) => {
             }
             d3.select("#date_picker").property("value", cur_date);
             d3.select("#cur_month").html(cur_date);
-            d3.select("#prev").attr("class", "arrow-enabled");
             cur_x = d3.selectAll("input[name=\"x_axis\"]:checked").property("value");
             cur_y = d3.selectAll("input[name=\"y_axis\"]:checked").property("value");
             d3.select("#main_chart").html("");
@@ -380,7 +352,52 @@ function setupNavigation(target_id, all_dates, cur_date) {
         .attr("class", "arrow-disabled")
         .attr("x", nav_width/2 - 80)
         .attr("y", nav_height/2)
-        .attr("dx", 140);
+        .attr("dx", 140)
+    nav.append("text")
+        .text(function(d,i) { return "Click on \">>\" to proceed"; })
+        .attr("id", "demo_text")
+        .attr("x", nav_width/2 - 135)
+        .attr("y", nav_height/2 + 25)
+        .attr("dx", 30)
+        .attr("fill", "#E8336D");
+    
+    // Enable the "next" navigational arrows.
+    d3.select("#next")
+        .attr("class", "arrow-enabled");
+
+    // If cur_date is the first item of the all_dates array, disable the "prev" arrows. 
+    if(all_dates.indexOf(cur_date) == 0) {
+        d3.select("#prev").attr("class", "arrow-disabled");
+    }
+
+    // If cur_date is the last item of the all_dates array, disable the "next" arrows. 
+    if(all_dates.indexOf(cur_date) == all_dates.length - 1) {
+        d3.select("#next").attr("class", "arrow-disabled");
+    }
+
+    // Annotations
+    const navAnnotations = [
+        {
+            note: {
+                title: "Click here to start!",
+                wrap: 150
+            },
+            x: parseInt(nav.select("#next").attr("x")) + 170,
+            y: parseInt(nav.select("#next").attr("y")) - 5,
+            dx: 20,
+            dy: -0.5,
+            type: d3.annotationCalloutElbow,
+            connector: { end: "arrow" }
+        }
+    ];
+
+    const makeNavAnnotations = d3.annotation()
+        .type(d3.annotationLabel)
+        .annotations(navAnnotations);
+
+    nav.append("g")
+        .attr("class", "demo-annotation-group")
+        .call(makeNavAnnotations);   
 }
 
 /* Charting function */
@@ -450,6 +467,41 @@ function setupChart(data, target_id, location_index, x_index, y_index, order) {
             connector: { end: "arrow" }
         }
     ];
+
+
+    if(click_count == 1) {
+        annotations.push(
+            {
+                note: {
+                    title: "Try hovering over!",
+                    label: "Tooltip provides you additional information about each data point",
+                    wrap: 150
+                },
+                x: x(data[0][x_index]),
+                y: y(data[0][y_index]),
+                dx: -50,
+                dy: -30,
+                className: "demo-annotation-group",
+                type: d3.annotationCalloutElbow,
+                connector: { end: "arrow" }
+            });
+    } else if (click_count == 2) {
+        annotations.push(
+            {
+                note: {
+                    title: "Alternate axis variables",
+                    label: "You have 2 different variables you can choose from for each axis",
+                    wrap: 150
+                },
+                x: x(x_max),
+                y: y(parseFloat(y_max/2) + 85),
+                dx: -50,
+                dy: -10,
+                className: "demo-annotation-group",
+                type: d3.annotationCalloutElbow,
+                connector: { end: "arrow" }
+            });
+    }
 
     const makeAnnotations = d3.annotation()
           .type(d3.annotationLabel)
