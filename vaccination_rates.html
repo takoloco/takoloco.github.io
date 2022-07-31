@@ -72,14 +72,14 @@
             :root {
                 --annotation-color: #E8336D;
             }
-            #nav .annotation path {
+            .demo-annotation-group path {
                 stroke: var(--annotation-color);
                 fill: rgba(0,0,0,0);
             }
-            #nav .annotation path.connector-arrow{
+            .demo-annotation-group path.connector-arrow{
                 fill: var(--annotation-color);
             }
-            #nav .annotation text {
+            .demo-annotation-group text {
                 fill: var(--annotation-color);
             }
             .annotation-note-label {
@@ -450,6 +450,46 @@ function setupChart(data, target_id, location_index, x_index, y_index, order) {
             connector: { end: "arrow" }
         }
     ];
+
+    if(cur_date == "2021-08-01" && x_index == "total_deaths_per_million" && y_index == "total_vaccinations_per_hundred") {
+        annotations[0]["className"] = "demo-annotation-group";
+        annotations.push(
+            {
+                note: {
+                    title: "Total Deaths Per Million vs Total Vaccination",
+                    label: "First negative slope indicating negative correlation. This trend continues through July 2022",
+                    padding: -70,
+                    wrap: 150
+                },
+                x: x(x_max)/2,
+                y: y(trendline.intercept+trendline.slope*x_max/2),
+                dy: -50,
+                dx: 200,
+                className: "demo-annotation-group",
+                type: d3.annotationCalloutElbow,
+                connector: { end: "arrow" }
+            }
+        );
+    } else if(cur_date == "2022-03-01" && x_index == "total_cases_per_million" && y_index == "total_vaccinations_per_hundred"){
+        annotations[0]["className"] = "demo-annotation-group";
+        annotations.push(
+            {
+                note: {
+                    title: "Largest negative slope",
+                    label: "Total Cases PerMillion vs Total Vaccination PerHundred",
+                    padding: -45,
+                    wrap: 150
+                },
+                x: x(x_max)/2,
+                y: y(trendline.intercept+trendline.slope*x_max/2),
+                dy: -50,
+                dx: 200,
+                className: "demo-annotation-group",
+                type: d3.annotationCalloutElbow,
+                connector: { end: "arrow" }
+            }
+        );
+    }
 
     const makeAnnotations = d3.annotation()
           .type(d3.annotationLabel)
